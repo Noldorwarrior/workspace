@@ -273,7 +273,11 @@ def main():
 
     print(f"📋 Верификация: {len(scripts_to_run)} скриптов для {len(args.files)} файлов")
     print(f"   Файлы: {', '.join(args.files)}")
-    print(f"   Скрипты: {', '.join(scripts_to_run)}")
+    if scripts_to_run:
+        print(f"   Скрипты: {', '.join(scripts_to_run)}")
+    else:
+        preset_name = args.preset or "авто"
+        print(f"   ⚠️ Пресет {preset_name} не содержит скриптовых проверок (только LLM-механизмы)")
     if skipped:
         print(f"   Пропущены (не применимы): {', '.join(skipped)}")
     print()
