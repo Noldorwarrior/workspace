@@ -4,52 +4,36 @@
 
 ## Обнаруженные компоненты:
 
-### scripts/ (11 Python-файлов, 1778 строк)
-- `auto_verify.py` (362 строк) — оркестратор: выбор и запуск скриптов по пресету
-- `verify_docx_format.py` (228 строк) — формат docx по стандарту #6
-- `verify_sums.py` (184 строк) — сверка сумм/итогов и проверка границ в xlsx
-- `verify_cross_file.py` (192 строки) — кросс-файловая согласованность
-- `generate_report.py` (214 строк) — генерация итогового отчёта (md/docx)
-- `verify_references.py` (111 строк) — битые ссылки в docx
-- `verify_dates.py` (107 строк) — валидация дат и хронологии
-- `verify_pptx_html_sync.py` (104 строки) — согласованность pptx↔html
-- `verify_pptx_format.py` (97 строк) — формат слайдов (16:9, шрифты)
-- `diff_versions.py` (95 строк) — diff между версиями файлов
-- `verify_numbering.py` (84 строки) — нумерация таблиц, диаграмм, приложений
+### scripts/ (12 Python-файлов)
+- `auto_verify.py` — оркестратор: выбор и запуск скриптов по пресету
+- `verify_docx_format.py` — формат docx по стандарту #6 (18/18 параметров)
+- `verify_sums.py` — сверка сумм/итогов, границы, merged cells, read_only
+- `verify_cross_file.py` — кросс-файловая согласованность (числа, ФИО, семантика)
+- `verify_references.py` — битые ссылки в docx (поабзацно, приоритет подписям)
+- `verify_dates.py` — валидация дат (3 формата, datetime из openpyxl)
+- `verify_numbering.py` — нумерация (дубликаты, пропуски, монотонность, буквы)
+- `verify_pptx_format.py` — формат слайдов (16:9, шрифты по whitelist, ноты)
+- `verify_pptx_html_sync.py` — согласованность pptx↔html (конфигурируемый паттерн)
+- `verify_regression.py` — защита от регрессий по предыдущему отчёту
+- `diff_versions.py` — diff между версиями файлов
+- `generate_report.py` — генерация отчёта (md/docx, inline-разметка, таблицы)
 
-### references/ (6 файлов + 2 специальных, 1782 строки)
-- `agent_patterns.md` (317 строк) — субагенты, параллелизм, оркестрация
-- `mechanisms_factual.md` (239 строк) — №1,2,6,7: факты, хронология, противоречия
-- `mechanisms_logical.md` (238 строк) — №10-17,30: логика, каузальность, стресс-тест
-- `mechanisms_document.md` (221 строк) — №5,8,9,21,22,24-26,29,32: формат, diff, ссылки
-- `mechanisms_numerical.md` (209 строк) — №3,4,20,23: расчёты, границы, метаморфизм
-- `mechanisms_source.md` (105 строк) — №18,19,28: источники, эпистемический статус
-- `mechanisms_audience.md` (95 строк) — №27,31: аудитория, адресат
-- `presets_matrix.md` (103 строки) — М1-М5, П1-П14, матрица покрытия
+### references/ (9 файлов)
+- `mechanisms_factual.md` — №1,2,6,7
+- `mechanisms_logical.md` — №10-17,30
+- `mechanisms_source.md` — №18,19,28
+- `mechanisms_numerical.md` — №3,4,20,23
+- `mechanisms_format.md` — №5,8,9
+- `mechanisms_consistency.md` — №21,22,24-26,29,32
+- `mechanisms_audience.md` — №27,31
+- `presets_matrix.md` — М1-М5, П1-П14, кросс-матрица
+- `agent_patterns.md` — субагенты, параллелизм, оркестрация
 
-### Определения пресетов:
-- Главное определение: `presets_matrix.md`
-- Код: `auto_verify.py` (PRESET_SCRIPTS dict, строка 78)
-- Описание в SKILL.md (быстрые сценарии, строка 225)
+### Прочее
+- `SKILL.md` — маршрутизация, workflow, граничные случаи, 9 быстрых сценариев
+- `CLAUDE.md.template` — шаблон для проектного CLAUDE.md
 
-### Workflow:
-- Определение: `SKILL.md` (Этапы 0-5, строки 111-221)
-- Шаблон для проектов: `CLAUDE.md.template`
-
-### Режимы агентов:
-- Определение: `agent_patterns.md`
-- Упоминание: `SKILL.md`, `presets_matrix.md` (столбец «Рекомендуемый режим»)
-
-### Быстрые сценарии:
-- Определение: `SKILL.md` (строки 225-255)
-
-### Корневая CLAUDE.md:
+### Корневая CLAUDE.md
 - `/home/user/workspace/CLAUDE.md` — ссылается на скилл верификации
 
-## Итого: 21 файл, 3601 строка кода/документации
-
-## Не обнаружено:
-- requirements.txt (зависимости указаны в try/except каждого скрипта)
-- Тесты (отсутствуют)
-- CI/CD конфигурация
-- Changelog / версионирование
+## Итого: 23 файла в системе верификации + 8 файлов аудита + 11 тест-файлов
