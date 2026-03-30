@@ -13,10 +13,14 @@ except ImportError:
     print("pip install python-pptx --break-system-packages", file=sys.stderr)
     sys.exit(1)
 
-def verify(filepath):
+ALLOWED_FONTS = {"Arial", "Calibri", "Helvetica", "Helvetica Neue", "Segoe UI", "Tahoma", "Verdana"}
+
+
+def verify(filepath, allowed_fonts=None):
     prs = Presentation(filepath)
     findings = []
-    
+    fonts_whitelist = allowed_fonts or ALLOWED_FONTS
+
     # Проверка соотношения сторон
     w, h = prs.slide_width, prs.slide_height
     ratio = w / h if h else 0
@@ -31,10 +35,11 @@ def verify(filepath):
         })
 
     # Проверка слайдов
-    min_font = 100
+    min_font = 100  # начальное значение для поиска минимума
     slides_without_notes = []
+    non_standard_fonts = set()
     for i, slide in enumerate(prs.slides, 1):
-        # Минимальный шрифт
+        # Шрифты: размер + название
         for shape in slide.shapes:
             if shape.has_text_frame:
                 for para in shape.text_frame.paragraphs:
@@ -43,6 +48,8 @@ def verify(filepath):
                             pt = run.font.size / Pt(1)  # EMU to pt
                             if pt < min_font and pt > 0:
                                 min_font = pt
+                        if run.font.name and run.font.name not in fonts_whitelist:
+                            non_standard_fonts.add(run.font.name)
         
         # Спикер-ноты
         if slide.has_notes_slide:
@@ -59,6 +66,15 @@ def verify(filepath):
             "expected": ">= 12pt",
             "actual": f"{min_font:.0f}pt",
             "description": f"Минимальный шрифт {min_font:.0f}pt — может быть нечитаемым при проекции",
+        })
+
+    if non_standard_fonts:
+        findings.append({
+            "severity": "info",
+            "location": "Шрифты",
+            "expected": f"из списка: {', '.join(sorted(fonts_whitelist))}",
+            "actual": ', '.join(sorted(non_standard_fonts)),
+            "description": f"Нестандартные шрифты: {', '.join(sorted(non_standard_fonts))}",
         })
 
     if slides_without_notes:
