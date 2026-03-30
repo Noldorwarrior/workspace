@@ -46,10 +46,20 @@ def find_targets(doc):
     """Найти существующие цели (таблицы, заголовки, приложения)."""
     targets = {"Таблица": set(), "Рисунок": set(), "Диаграмма": set(),
                "Приложение": set(), "Пункт": set(), "Схема": set(), "График": set(), "Слайд": set()}
-    
-    # Таблицы — считаем по порядку
-    for i in range(len(doc.tables)):
-        targets["Таблица"].add(str(i + 1))
+
+    # Таблицы — приоритет подписям «Таблица N — ...» в тексте
+    caption_tables = set()
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        m = re.match(r"^Таблица\s+(\d+)", text, re.IGNORECASE)
+        if m:
+            caption_tables.add(m.group(1))
+    if caption_tables:
+        targets["Таблица"] = caption_tables
+    else:
+        # Fallback: порядковая нумерация
+        for i in range(len(doc.tables)):
+            targets["Таблица"].add(str(i + 1))
 
     # Заголовки с нумерацией → пункты
     for para in doc.paragraphs:
