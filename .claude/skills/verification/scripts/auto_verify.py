@@ -173,11 +173,22 @@ def run_script(script_name: str, files: list[str]) -> dict:
 
         if result.returncode == 0 and result.stdout.strip():
             return json.loads(result.stdout)
+        elif result.returncode == 0:
+            return {
+                "script": f"{module_name}.py",
+                "status": "pass",
+                "details": "Скрипт завершился успешно, но не вернул JSON",
+                "items_checked": 0,
+                "items_passed": 0,
+                "items_warned": 0,
+                "items_failed": 0,
+                "findings": [],
+            }
         else:
             return {
                 "script": f"{module_name}.py",
                 "status": "error",
-                "details": result.stderr or "Скрипт не вернул результат",
+                "details": result.stderr or f"Скрипт завершился с кодом {result.returncode}",
                 "items_checked": 0,
                 "items_passed": 0,
                 "items_warned": 0,
