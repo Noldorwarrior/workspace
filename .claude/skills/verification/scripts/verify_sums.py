@@ -142,7 +142,13 @@ def verify(filepath: str) -> dict:
 
         check_boundaries(ws, findings)
         check_negative_values(ws, findings)
-        items_checked += ws.max_row * ws.max_column  # approximate
+        # Считаем фактические числовые ячейки
+        numeric_cells = 0
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            for cell in row:
+                if isinstance(cell, (int, float)):
+                    numeric_cells += 1
+        items_checked += numeric_cells
 
     items_warned = len([f for f in findings if f["severity"] == "warning"])
     items_failed = len([f for f in findings if f["severity"] == "error"])

@@ -241,6 +241,7 @@ def main():
 
     # Убираем неприменимые
     applicable = detect_applicable_scripts(args.files)
+    skipped = [s for s in scripts_to_run if s not in applicable]
     scripts_to_run = [s for s in scripts_to_run if s in applicable]
 
     # Запускаем
@@ -249,12 +250,15 @@ def main():
         "files_checked": args.files,
         "preset": args.preset,
         "scripts_requested": scripts_to_run,
+        "scripts_skipped": skipped,
         "checks": [],
     }
 
     print(f"📋 Верификация: {len(scripts_to_run)} скриптов для {len(args.files)} файлов")
     print(f"   Файлы: {', '.join(args.files)}")
     print(f"   Скрипты: {', '.join(scripts_to_run)}")
+    if skipped:
+        print(f"   Пропущены (не применимы): {', '.join(skipped)}")
     print()
 
     for script_name in scripts_to_run:
