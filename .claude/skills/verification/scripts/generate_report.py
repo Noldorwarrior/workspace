@@ -17,7 +17,11 @@ from pathlib import Path
 def load_script_results(filepath):
     if not filepath or not Path(filepath).exists():
         return None
-    return json.loads(Path(filepath).read_text(encoding="utf-8"))
+    try:
+        return json.loads(Path(filepath).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        print(f"⚠️ Ошибка разбора JSON: {filepath} — {e}", file=sys.stderr)
+        return None
 
 
 def load_agent_results(filepath):
