@@ -189,27 +189,29 @@ def check_paragraphs(doc):
 
 
 def check_tables(doc):
-    """Проверка форматирования таблиц."""
+    """Проверка форматирования заголовочной строки каждой таблицы."""
     findings = []
     for i, table in enumerate(doc.tables):
-        for row in table.rows[:1]:  # проверяем первую строку как образец
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    for run in para.runs:
-                        if run.font.size:
-                            actual_pt = pt_from_emu(run.font.size)
-                            if actual_pt and abs(actual_pt - STANDARD["table_font_size_pt"]) > TOLERANCE_PT:
-                                findings.append({
-                                    "severity": "info",
-                                    "location": f"Таблица {i+1}",
-                                    "expected": f"{STANDARD['table_font_size_pt']} pt",
-                                    "actual": f"{actual_pt} pt",
-                                    "description": f"Шрифт в таблице: {actual_pt}pt вместо {STANDARD['table_font_size_pt']}pt",
-                                })
-                            break
-                    break
-                break
-            break
+        if not table.rows:
+            continue
+        header_row = table.rows[0]
+        for c_idx, cell in enumerate(header_row.cells):
+            for para in cell.paragraphs:
+                for run in para.runs:
+                    if not run.text.strip():
+                        continue
+                    if run.font.size:
+                        actual_pt = pt_from_emu(run.font.size)
+                        if actual_pt and abs(actual_pt - STANDARD["table_font_size_pt"]) > TOLERANCE_PT:
+                            findings.append({
+                                "severity": "info",
+                                "location": f"Таблица {i+1}, ячейка {c_idx+1}",
+                                "expected": f"{STANDARD['table_font_size_pt']} pt",
+                                "actual": f"{actual_pt} pt",
+                                "description": f"Шрифт в таблице {i+1}, ячейка {c_idx+1}: {actual_pt}pt вместо {STANDARD['table_font_size_pt']}pt",
+                            })
+                    break  # первый непустой run в ячейке
+                break  # первый абзац в ячейке
     return findings
 
 
