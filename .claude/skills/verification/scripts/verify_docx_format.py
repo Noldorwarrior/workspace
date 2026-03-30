@@ -213,6 +213,50 @@ def check_tables(doc):
     return findings
 
 
+def check_headers_footers(doc):
+    """Проверка колонтитулов."""
+    findings = []
+    for i, section in enumerate(doc.sections):
+        # Верхний колонтитул: 9pt курсив
+        if section.header and section.header.paragraphs:
+            for para in section.header.paragraphs:
+                for run in para.runs:
+                    if not run.text.strip():
+                        continue
+                    if run.font.size:
+                        actual_pt = pt_from_emu(run.font.size)
+                        if actual_pt and abs(actual_pt - STANDARD["header_font_size_pt"]) > TOLERANCE_PT:
+                            findings.append({
+                                "severity": "info",
+                                "location": f"Section {i+1}, верхний колонтитул",
+                                "expected": f"{STANDARD['header_font_size_pt']} pt",
+                                "actual": f"{actual_pt} pt",
+                                "description": f"Шрифт верхнего колонтитула: {actual_pt}pt вместо {STANDARD['header_font_size_pt']}pt",
+                            })
+                    break
+                break
+
+        # Нижний колонтитул: 12pt
+        if section.footer and section.footer.paragraphs:
+            for para in section.footer.paragraphs:
+                for run in para.runs:
+                    if not run.text.strip():
+                        continue
+                    if run.font.size:
+                        actual_pt = pt_from_emu(run.font.size)
+                        if actual_pt and abs(actual_pt - STANDARD["footer_font_size_pt"]) > TOLERANCE_PT:
+                            findings.append({
+                                "severity": "info",
+                                "location": f"Section {i+1}, нижний колонтитул",
+                                "expected": f"{STANDARD['footer_font_size_pt']} pt",
+                                "actual": f"{actual_pt} pt",
+                                "description": f"Шрифт нижнего колонтитула: {actual_pt}pt вместо {STANDARD['footer_font_size_pt']}pt",
+                            })
+                    break
+                break
+    return findings
+
+
 def verify(filepath: str) -> dict:
     """Главная функция верификации."""
     doc = Document(filepath)
@@ -230,7 +274,11 @@ def verify(filepath: str) -> dict:
     table_findings = check_tables(doc)
     all_findings.extend(table_findings)
 
-    items_checked = len(doc.sections) + para_checked + len(doc.tables)
+    # Колонтитулы
+    hf_findings = check_headers_footers(doc)
+    all_findings.extend(hf_findings)
+
+    items_checked = len(doc.sections) + para_checked + len(doc.tables) + len(doc.sections)
     items_warned = len([f for f in all_findings if f["severity"] == "warning"])
     items_failed = len([f for f in all_findings if f["severity"] == "error"])
     items_info = len([f for f in all_findings if f["severity"] == "info"])
