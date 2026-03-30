@@ -83,14 +83,10 @@ def check_margins(doc):
 
 
 def check_paragraphs(doc):
-    """Проверка шрифтов и отступов абзацев."""
-    # TODO [AUDIT-WARN-010]: Добавить проверку line_spacing (1.15 из STANDARD).
-    # TODO [AUDIT-WARN-011]: Добавить проверку first_line_indent (1.5 см из STANDARD).
-    # TODO [AUDIT-WARN-012]: Добавить проверку space_after (8pt из STANDARD).
-    #   Найдено аудитом 2026-03-30. См. audit/AUDIT_REPORT.md
+    """Проверка шрифтов, отступов и интервалов абзацев."""
     findings = []
     heading_sizes = {"Heading 1": STANDARD["h1_size_pt"], "Heading 2": STANDARD["h2_size_pt"], "Heading 3": STANDARD["h3_size_pt"]}
-    
+
     checked = 0
     for i, para in enumerate(doc.paragraphs):
         if not para.text.strip():
@@ -127,7 +123,7 @@ def check_paragraphs(doc):
                         })
                 break
 
-        # Обычные абзацы — шрифт
+        # Обычные абзацы — шрифт, отступы, интервалы
         elif style_name in ("Normal", "Body Text"):
             for run in para.runs:
                 if run.font.name and run.font.name != STANDARD["font_name"]:
@@ -148,7 +144,45 @@ def check_paragraphs(doc):
                             "actual": f"{actual_pt} pt",
                             "description": f"Размер шрифта: {actual_pt}pt вместо {STANDARD['font_size_pt']}pt",
                         })
-                break  # TODO [AUDIT-WARN-013]: Проверять все runs, не только первый. См. audit/AUDIT_REPORT.md
+                break
+
+            # Межстрочный интервал
+            pf = para.paragraph_format
+            if pf.line_spacing is not None:
+                actual_ls = pf.line_spacing
+                # line_spacing может быть float (множитель) или Emu (фиксированный)
+                if isinstance(actual_ls, (int, float)) and abs(actual_ls - STANDARD["line_spacing"]) > 0.05:
+                    findings.append({
+                        "severity": "warning",
+                        "location": f"Абзац {i+1}",
+                        "expected": f"{STANDARD['line_spacing']}",
+                        "actual": f"{actual_ls}",
+                        "description": f"Межстрочный интервал: {actual_ls} вместо {STANDARD['line_spacing']}",
+                    })
+
+            # Отступ первой строки
+            if pf.first_line_indent is not None:
+                actual_indent_cm = cm_from_emu(pf.first_line_indent)
+                if actual_indent_cm is not None and abs(actual_indent_cm - STANDARD["first_line_indent_cm"]) > TOLERANCE_CM:
+                    findings.append({
+                        "severity": "warning",
+                        "location": f"Абзац {i+1}",
+                        "expected": f"{STANDARD['first_line_indent_cm']} см",
+                        "actual": f"{actual_indent_cm} см",
+                        "description": f"Красная строка: {actual_indent_cm} см вместо {STANDARD['first_line_indent_cm']} см",
+                    })
+
+            # Интервал после абзаца
+            if pf.space_after is not None:
+                actual_space_pt = pt_from_emu(pf.space_after)
+                if actual_space_pt is not None and abs(actual_space_pt - STANDARD["space_after_pt"]) > TOLERANCE_PT:
+                    findings.append({
+                        "severity": "warning",
+                        "location": f"Абзац {i+1}",
+                        "expected": f"{STANDARD['space_after_pt']} pt",
+                        "actual": f"{actual_space_pt} pt",
+                        "description": f"Интервал после абзаца: {actual_space_pt}pt вместо {STANDARD['space_after_pt']}pt",
+                    })
 
     return findings, checked
 

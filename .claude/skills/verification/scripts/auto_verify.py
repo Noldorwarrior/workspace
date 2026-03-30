@@ -85,7 +85,7 @@ PRESET_SCRIPTS = {
     "П3": ["sums", "cross_file", "references"],
     "П4": ["format", "references", "diff"],
     "П5": list(SCRIPT_REGISTRY.keys()),  # все
-    "П6": [],
+    "П6": ["cross_file"],
     "П7": ["dates", "references"],
     "П8": ["cross_file", "dates", "numbering"],
     "П9": [],

@@ -38,17 +38,46 @@ def find_sum_rows(ws):
     return sum_rows
 
 
+def get_merged_cell_ranges(ws):
+    """Получить множество ячеек, входящих в объединённые диапазоны (кроме верхней левой)."""
+    merged = set()
+    for rng in ws.merged_cells.ranges:
+        cells = list(rng.cells)
+        for cell_coord in cells[1:]:  # пропускаем первую (она хранит значение)
+            merged.add(cell_coord)
+    return merged
+
+
+def is_row_hidden(ws, row_idx):
+    """Проверить, скрыта ли строка."""
+    rd = ws.row_dimensions.get(row_idx)
+    return rd is not None and rd.hidden
+
+
 def check_sum_row(ws, sum_row_idx, findings):
     """Проверить итоговую строку: сумма ячеек выше должна совпадать."""
+    merged_cells = get_merged_cell_ranges(ws)
+
     for col_idx in range(1, ws.max_column + 1):
         cell = ws.cell(row=sum_row_idx, column=col_idx)
         if cell.value is None or not isinstance(cell.value, (int, float)):
+            continue
+        # Пропускаем вторичные ячейки объединённого диапазона
+        if (sum_row_idx, col_idx) in merged_cells:
             continue
 
         # Собираем числа выше до предыдущего итога или начала
         actual_sum = 0
         count = 0
+        hidden_skipped = 0
         for r in range(sum_row_idx - 1, 0, -1):
+            # Пропускаем скрытые строки
+            if is_row_hidden(ws, r):
+                hidden_skipped += 1
+                continue
+            # Пропускаем вторичные ячейки объединённого диапазона
+            if (r, col_idx) in merged_cells:
+                continue
             upper_cell = ws.cell(row=r, column=col_idx)
             if upper_cell.value is None:
                 continue
@@ -63,12 +92,15 @@ def check_sum_row(ws, sum_row_idx, findings):
         if count > 1:  # есть что суммировать
             diff = abs(cell.value - actual_sum)
             if diff > 0.01:  # порог
+                detail = f"Итог {cell.coordinate}={cell.value}, пересчёт={actual_sum}, разница={diff}"
+                if hidden_skipped > 0:
+                    detail += f" (пропущено скрытых строк: {hidden_skipped})"
                 findings.append({
                     "severity": "error" if diff > 1 else "warning",
                     "location": f"{ws.title}!{cell.coordinate}",
                     "expected": str(actual_sum),
                     "actual": str(cell.value),
-                    "description": f"Итог {cell.coordinate}={cell.value}, пересчёт={actual_sum}, разница={diff}",
+                    "description": detail,
                 })
 
 
@@ -130,9 +162,6 @@ def check_negative_values(ws, findings):
 
 
 def verify(filepath: str) -> dict:
-    # TODO [AUDIT-WARN-014]: Обработать merged cells (ws.merged_cells.ranges) и скрытые строки.
-    # TODO [AUDIT-WARN-015]: Для больших файлов использовать read_only=True для снижения потребления RAM.
-    #   Найдено аудитом 2026-03-30. См. audit/AUDIT_REPORT.md
     wb = openpyxl.load_workbook(filepath, data_only=True)
     findings = []
     items_checked = 0
