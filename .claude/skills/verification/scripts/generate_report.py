@@ -109,6 +109,34 @@ def generate_md(script_results, agent_results, preset=None, mechanisms=None):
     return "\n".join(lines)
 
 
+def _add_formatted_paragraph(doc, text, style="Normal"):
+    """Добавить абзац с парсингом inline-разметки (**жирный**, *курсив*)."""
+    p = doc.add_paragraph(style=style)
+    # Разбиваем по **жирный** и *курсив*
+    # Порядок: сначала bold+italic (***), потом bold (**), потом italic (*)
+    pattern = re.compile(r'(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*)')
+    last_end = 0
+    for m in pattern.finditer(text):
+        # Добавляем текст до матча
+        if m.start() > last_end:
+            p.add_run(text[last_end:m.start()])
+        if m.group(2):  # ***bold+italic***
+            run = p.add_run(m.group(2))
+            run.bold = True
+            run.italic = True
+        elif m.group(3):  # **bold**
+            run = p.add_run(m.group(3))
+            run.bold = True
+        elif m.group(4):  # *italic*
+            run = p.add_run(m.group(4))
+            run.italic = True
+        last_end = m.end()
+    # Остаток текста
+    if last_end < len(text):
+        p.add_run(text[last_end:])
+    return p
+
+
 def generate_docx(md_content, output_path):
     """Конвертировать md-отчёт в docx с нормальными таблицами."""
     try:
@@ -169,9 +197,9 @@ def generate_docx(md_content, output_path):
                                     run.bold = True
                 i -= 1  # компенсация внешнего i += 1
             elif line.startswith("- "):
-                doc.add_paragraph(line[2:], style="List Bullet")
+                _add_formatted_paragraph(doc, line[2:], style="List Bullet")
             elif line.strip():
-                doc.add_paragraph(line)
+                _add_formatted_paragraph(doc, line)
 
             i += 1
 
