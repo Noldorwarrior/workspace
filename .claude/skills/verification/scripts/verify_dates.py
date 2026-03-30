@@ -16,7 +16,7 @@ DATE_PATTERNS = [
     (r'(\d{4})-(\d{2})-(\d{2})', 'ymd_iso'),
 ]
 
-def extract_dates(text):
+def extract_dates(text: str) -> list[dict]:
     dates = []
     for pattern, fmt in DATE_PATTERNS:
         for m in re.finditer(pattern, text, re.IGNORECASE):
@@ -33,7 +33,7 @@ def extract_dates(text):
                 pass
     return dates
 
-def verify(files):
+def verify(files: list[str]) -> dict:
     findings = []
     all_dates = []
     
