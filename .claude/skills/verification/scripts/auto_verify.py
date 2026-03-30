@@ -71,6 +71,12 @@ SCRIPT_REGISTRY = {
         "description": "Diff между версиями файлов",
         "min_files": 2,
     },
+    "regression": {
+        "module": "verify_regression",
+        "applies_to": ["*"],
+        "description": "Проверка регрессий по предыдущему отчёту",
+        "min_files": 1,
+    },
 }
 
 # Пресеты → скрипты
@@ -93,7 +99,7 @@ PRESET_SCRIPTS = {
     "П11": ["format"],
     "П12": ["references"],
     "П13": ["sums", "references", "dates"],
-    "П14": ["diff", "format"],
+    "П14": ["diff", "format", "regression"],
 }
 
 
