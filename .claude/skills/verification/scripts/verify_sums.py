@@ -161,8 +161,13 @@ def check_negative_values(ws, findings):
                         })
 
 
+MAX_FILE_SIZE_MB = 50  # файлы больше этого размера открываются в read_only
+
+
 def verify(filepath: str) -> dict:
-    wb = openpyxl.load_workbook(filepath, data_only=True)
+    file_size_mb = Path(filepath).stat().st_size / (1024 * 1024)
+    use_read_only = file_size_mb > MAX_FILE_SIZE_MB
+    wb = openpyxl.load_workbook(filepath, data_only=True, read_only=use_read_only)
     findings = []
     items_checked = 0
 

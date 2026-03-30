@@ -9,7 +9,7 @@ generate_report.py — Генерация итогового отчёта вер
     python generate_report.py --script-results script_report.json --output report.docx --format docx
 """
 
-import argparse, json, sys
+import argparse, json, re, sys
 from datetime import datetime
 from pathlib import Path
 
@@ -143,7 +143,9 @@ def generate_docx(md_content, output_path):
                     row_text = lines[i]
                     # Пропускаем строки-разделители (|---|---|)
                     if not set(row_text.replace("|", "").strip()) <= {"-", " ", ":"}:
-                        cells = [c.strip() for c in row_text.strip("|").split("|")]
+                        # Разделяем по |, но учитываем экранированный \|
+                        raw = row_text.strip().strip("|")
+                        cells = [c.strip().replace("\\|", "|") for c in re.split(r'(?<!\\)\|', raw)]
                         table_lines.append(cells)
                     i += 1
                 # Создаём docx-таблицу

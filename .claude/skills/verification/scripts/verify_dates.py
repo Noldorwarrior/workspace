@@ -49,7 +49,15 @@ def verify(files):
             wb = openpyxl.load_workbook(f, data_only=True)
             for ws in wb.worksheets:
                 for row in ws.iter_rows(values_only=True):
-                    text += " ".join(str(c) for c in row if c) + "\n"
+                    for c in row:
+                        if c is None:
+                            continue
+                        # Обработка datetime-объектов из openpyxl напрямую
+                        if isinstance(c, datetime):
+                            all_dates.append({"date": c, "text": c.strftime("%d.%m.%Y"), "context": f"{f}: ячейка", "file": f})
+                        else:
+                            text += str(c) + " "
+                    text += "\n"
         
         file_dates = extract_dates(text)
         for d in file_dates:
@@ -73,12 +81,12 @@ def verify(files):
 
     # Проверка 2: нереалистичные даты
     for d in all_dates:
-        # TODO [AUDIT-WARN-017]: Расширить верхнюю границу до now.year + 10 (сейчас хардкод 2030).
-        if d["date"].year < 1990 or d["date"].year > 2030:
+        max_year = now.year + 10
+        if d["date"].year < 1990 or d["date"].year > max_year:
             findings.append({
                 "severity": "warning",
                 "location": f"{d['file']}: {d['text']}",
-                "expected": "1990–2030",
+                "expected": f"1990–{max_year}",
                 "actual": d["text"],
                 "description": f"Подозрительный год: {d['date'].year}",
             })

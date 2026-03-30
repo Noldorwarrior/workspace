@@ -22,8 +22,7 @@ def extract_data_from_docx(filepath):
         text = para.text.strip()
         if not text:
             continue
-        # Числа с разделителями (123 456 789 или 123,456)
-        # TODO [AUDIT-WARN-019]: Паттерн требует ≥2 цифры. Одноцифровые числа (напр. «5 человек») не находятся.
+        # Числа: многоцифровые с разделителями + одноцифровые с контекстным словом
         for m in re.finditer(r'(\d[\d\s,.]+\d)', text):
             num_str = m.group(1).replace(" ", "").replace(",", ".")
             try:
@@ -32,6 +31,12 @@ def extract_data_from_docx(filepath):
                 numbers.append({"value": val, "text": m.group(1).strip(), "context": context})
             except ValueError:
                 pass
+        # Одноцифровые числа с контекстным словом (напр. «5 человек», «3 года»)
+        context_words = r'(?:человек|чел|сотрудник|год|лет|раз|файл|этап|модул|пункт|том|часть|стр|шт)'
+        for m in re.finditer(rf'(\d)\s+{context_words}', text, re.IGNORECASE):
+            val = int(m.group(1))
+            context = text[max(0, m.start()-30):m.end()+30].strip()
+            numbers.append({"value": float(val), "text": m.group(1), "context": context})
         # ФИО (Фамилия И.О. или Фамилия Имя Отчество)
         for m in re.finditer(r'([А-ЯЁ][а-яё]+)\s+([А-ЯЁ])\.\s*([А-ЯЁ])\.', text):
             names.append({"name": m.group(0).strip(), "context": text[max(0, m.start()-20):m.end()+20].strip()})

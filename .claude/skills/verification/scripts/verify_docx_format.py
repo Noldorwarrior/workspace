@@ -126,6 +126,8 @@ def check_paragraphs(doc):
         # Обычные абзацы — шрифт, отступы, интервалы
         elif style_name in ("Normal", "Body Text"):
             for run in para.runs:
+                if not run.text.strip():
+                    continue
                 if run.font.name and run.font.name != STANDARD["font_name"]:
                     findings.append({
                         "severity": "warning",
@@ -144,7 +146,6 @@ def check_paragraphs(doc):
                             "actual": f"{actual_pt} pt",
                             "description": f"Размер шрифта: {actual_pt}pt вместо {STANDARD['font_size_pt']}pt",
                         })
-                break
 
             # Межстрочный интервал
             pf = para.paragraph_format
