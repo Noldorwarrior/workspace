@@ -59,6 +59,17 @@ def verify(filepath):
                         "actual": "пропущен",
                         "description": f"Пропуск в нумерации: {obj_type} {m} отсутствует (есть {min(nums)}–{max(nums)})",
                     })
+            # Монотонность порядка появления
+            unique_nums = list(dict.fromkeys(nums))  # убираем дубликаты, сохраняя порядок
+            for k in range(1, len(unique_nums)):
+                if unique_nums[k] < unique_nums[k - 1]:
+                    findings.append({
+                        "severity": "warning",
+                        "location": f"{obj_type} {unique_nums[k]}",
+                        "expected": f"после {obj_type} {unique_nums[k-1]}",
+                        "actual": f"перед {obj_type} {unique_nums[k-1]}",
+                        "description": f"Нарушение порядка: {obj_type} {unique_nums[k]} идёт после {obj_type} {unique_nums[k-1]}",
+                    })
 
     items_warned = len(findings)
     status = "warn" if items_warned > 0 else "pass"
