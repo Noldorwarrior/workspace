@@ -124,7 +124,7 @@ def check_paragraphs(doc):
                 break
 
         # Обычные абзацы — шрифт
-        elif style_name in ("Normal", "Body Text", ""):
+        elif style_name in ("Normal", "Body Text"):
             for run in para.runs:
                 if run.font.name and run.font.name != STANDARD["font_name"]:
                     findings.append({

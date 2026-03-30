@@ -151,7 +151,7 @@ def verify(filepath: str) -> dict:
     return {
         "script": "verify_sums.py",
         "status": status,
-        "details": f"Листов: {len(wb.worksheets)}, итогов проверено: {len(find_sum_rows(wb.active) if wb.active else [])}",
+        "details": f"Листов: {len(wb.worksheets)}, итогов проверено: {sum(len(find_sum_rows(ws)) for ws in wb.worksheets)}",
         "items_checked": items_checked,
         "items_passed": items_checked - items_warned - items_failed,
         "items_warned": items_warned,

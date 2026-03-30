@@ -4,7 +4,12 @@ verify_numbering.py — Проверка последовательности н
 """
 
 import argparse, json, re, sys
-from docx import Document
+
+try:
+    from docx import Document
+except ImportError:
+    print("pip install python-docx --break-system-packages", file=sys.stderr)
+    sys.exit(1)
 
 NUMBERED_OBJECTS = {
     "Таблица": r"Таблица\s+(\d+)",

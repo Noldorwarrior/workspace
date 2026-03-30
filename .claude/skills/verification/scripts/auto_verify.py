@@ -79,7 +79,7 @@ PRESET_SCRIPTS = {
     "М1": [],
     "М2": ["format", "sums"],
     "М3": ["format", "sums", "dates"],
-    "М4": ["pptx_format", "pptx_html_sync"],
+    "М4": ["pptx_format", "pptx_html_sync", "cross_file"],
     "М5": [],
     "П1": ["format", "references"],
     "П2": ["dates"],
@@ -273,6 +273,10 @@ def main():
             print(f"❌ ({result.get('items_failed', 0)} ошибок)")
         elif status == "skip":
             print("⏭️ пропущено")
+        elif status == "info":
+            print("ℹ️")
+        elif status == "error":
+            print(f"💥 ({result.get('details', '')})")
         else:
             print(f"? {status}")
 

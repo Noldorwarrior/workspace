@@ -40,7 +40,7 @@ def verify(filepath):
                 for para in shape.text_frame.paragraphs:
                     for run in para.runs:
                         if run.font.size:
-                            pt = run.font.size / 12700  # EMU to pt
+                            pt = run.font.size / Pt(1)  # EMU to pt
                             if pt < min_font and pt > 0:
                                 min_font = pt
         
