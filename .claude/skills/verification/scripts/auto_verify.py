@@ -129,7 +129,7 @@ def detect_applicable_scripts(files: list[str]) -> list[str]:
 
 
 def run_script(script_name: str, files: list[str]) -> dict:
-    """Запустить отдельный скрипт верификации."""
+    """Запустить отдельный скрипт верификации и вернуть результат в стандартном формате."""
     info = SCRIPT_REGISTRY[script_name]
     module_name = info["module"]
     script_path = SCRIPT_DIR / f"{module_name}.py"
