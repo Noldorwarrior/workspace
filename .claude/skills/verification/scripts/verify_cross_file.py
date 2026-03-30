@@ -23,6 +23,7 @@ def extract_data_from_docx(filepath):
         if not text:
             continue
         # Числа с разделителями (123 456 789 или 123,456)
+        # TODO [AUDIT-WARN-019]: Паттерн требует ≥2 цифры. Одноцифровые числа (напр. «5 человек») не находятся.
         for m in re.finditer(r'(\d[\d\s,.]+\d)', text):
             num_str = m.group(1).replace(" ", "").replace(",", ".")
             try:

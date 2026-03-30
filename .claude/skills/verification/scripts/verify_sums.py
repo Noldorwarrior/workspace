@@ -130,6 +130,9 @@ def check_negative_values(ws, findings):
 
 
 def verify(filepath: str) -> dict:
+    # TODO [AUDIT-WARN-014]: Обработать merged cells (ws.merged_cells.ranges) и скрытые строки.
+    # TODO [AUDIT-WARN-015]: Для больших файлов использовать read_only=True для снижения потребления RAM.
+    #   Найдено аудитом 2026-03-30. См. audit/AUDIT_REPORT.md
     wb = openpyxl.load_workbook(filepath, data_only=True)
     findings = []
     items_checked = 0

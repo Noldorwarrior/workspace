@@ -73,6 +73,7 @@ def verify(files):
 
     # Проверка 2: нереалистичные даты
     for d in all_dates:
+        # TODO [AUDIT-WARN-017]: Расширить верхнюю границу до now.year + 10 (сейчас хардкод 2030).
         if d["date"].year < 1990 or d["date"].year > 2030:
             findings.append({
                 "severity": "warning",

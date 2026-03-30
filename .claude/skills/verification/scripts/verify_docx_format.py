@@ -84,6 +84,10 @@ def check_margins(doc):
 
 def check_paragraphs(doc):
     """Проверка шрифтов и отступов абзацев."""
+    # TODO [AUDIT-WARN-010]: Добавить проверку line_spacing (1.15 из STANDARD).
+    # TODO [AUDIT-WARN-011]: Добавить проверку first_line_indent (1.5 см из STANDARD).
+    # TODO [AUDIT-WARN-012]: Добавить проверку space_after (8pt из STANDARD).
+    #   Найдено аудитом 2026-03-30. См. audit/AUDIT_REPORT.md
     findings = []
     heading_sizes = {"Heading 1": STANDARD["h1_size_pt"], "Heading 2": STANDARD["h2_size_pt"], "Heading 3": STANDARD["h3_size_pt"]}
     
@@ -144,7 +148,7 @@ def check_paragraphs(doc):
                             "actual": f"{actual_pt} pt",
                             "description": f"Размер шрифта: {actual_pt}pt вместо {STANDARD['font_size_pt']}pt",
                         })
-                break  # проверяем только первый run
+                break  # TODO [AUDIT-WARN-013]: Проверять все runs, не только первый. См. audit/AUDIT_REPORT.md
 
     return findings, checked
 
