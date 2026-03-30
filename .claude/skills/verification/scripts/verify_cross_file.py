@@ -11,6 +11,18 @@ from collections import defaultdict
 
 # Зависимости (python-docx, openpyxl) импортируются лениво в extract-функциях
 
+# Стоп-слова для фильтрации ложных ФИО (три слова с заглавной, не являющиеся именами)
+_FIO_STOP_WORDS = {
+    # Организации и география
+    "российская", "федерация", "правительство", "министерство", "республика",
+    "область", "край", "округ", "район", "город", "москва", "университет",
+    "институт", "академия", "факультет", "департамент", "управление",
+    # Прилагательные / существительные, часто стоящие рядом
+    "совет", "комитет", "комиссия", "фонд", "центр", "служба", "агентство",
+    "федеральная", "государственная", "национальный", "общественная", "молодёжная",
+    "президент", "председатель", "директор", "руководитель", "заместитель",
+}
+
 
 def extract_data_from_docx(filepath):
     """Извлечь числа и ФИО с контекстом из docx."""
@@ -37,11 +49,16 @@ def extract_data_from_docx(filepath):
             val = int(m.group(1))
             context = text[max(0, m.start()-30):m.end()+30].strip()
             numbers.append({"value": float(val), "text": m.group(1), "context": context})
-        # ФИО (Фамилия И.О. или Фамилия Имя Отчество)
+        # ФИО (Фамилия И.О. — высокая точность, не фильтруем)
         for m in re.finditer(r'([А-ЯЁ][а-яё]+)\s+([А-ЯЁ])\.\s*([А-ЯЁ])\.', text):
             names.append({"name": m.group(0).strip(), "context": text[max(0, m.start()-20):m.end()+20].strip()})
+        # ФИО (Фамилия Имя Отчество — фильтруем стоп-слова)
         for m in re.finditer(r'([А-ЯЁ][а-яё]+)\s+([А-ЯЁ][а-яё]+)\s+([А-ЯЁ][а-яё]+)', text):
-            names.append({"name": m.group(0).strip(), "context": text[max(0, m.start()-20):m.end()+20].strip()})
+            candidate = m.group(0).strip()
+            words = candidate.split()
+            if any(w.lower() in _FIO_STOP_WORDS for w in words):
+                continue
+            names.append({"name": candidate, "context": text[max(0, m.start()-20):m.end()+20].strip()})
     return numbers, names
 
 
