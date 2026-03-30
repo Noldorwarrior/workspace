@@ -14,7 +14,6 @@ import argparse
 import json
 import sys
 import os
-import importlib
 import subprocess
 from datetime import datetime
 from pathlib import Path

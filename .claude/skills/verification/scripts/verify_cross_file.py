@@ -9,10 +9,7 @@ import argparse, json, re, sys
 from pathlib import Path
 from collections import defaultdict
 
-try:
-    pass  # Зависимости импортируются лениво в extract-функциях
-except ImportError:
-    pass
+# Зависимости (python-docx, openpyxl) импортируются лениво в extract-функциях
 
 
 def extract_data_from_docx(filepath):

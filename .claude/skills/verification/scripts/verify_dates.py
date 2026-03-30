@@ -58,7 +58,8 @@ def verify(files):
 
     # Проверка 1: даты в будущем (если контекст не прогнозный)
     now = datetime.now()
-    prognosis_kw = ["план", "прогноз", "ожида", "целев", "будет", "2026", "2027"]
+    future_years = [str(now.year + i) for i in range(0, 5)]
+    prognosis_kw = ["план", "прогноз", "ожида", "целев", "будет"] + future_years
     for d in all_dates:
         if d["date"] > now:
             if not any(kw in d["context"].lower() for kw in prognosis_kw):

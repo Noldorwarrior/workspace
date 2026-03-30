@@ -253,7 +253,6 @@ python scripts/auto_verify.py \
   --files result.docx source.xlsx slides.pptx \
   --preset П1 \
   --scripts format,sums,references,cross_file,dates \
-  --format-standard rakhman_v6 \
   --output verification_report.json \
   --report-format md
 ```
