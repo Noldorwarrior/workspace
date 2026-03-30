@@ -24,7 +24,7 @@ _FIO_STOP_WORDS = {
 }
 
 
-def extract_data_from_docx(filepath):
+def extract_data_from_docx(filepath: str) -> tuple[list[dict], list[dict]]:
     """Извлечь числа и ФИО с контекстом из docx."""
     from docx import Document
     doc = Document(filepath)
@@ -62,7 +62,7 @@ def extract_data_from_docx(filepath):
     return numbers, names
 
 
-def extract_data_from_xlsx(filepath):
+def extract_data_from_xlsx(filepath: str) -> tuple[list[dict], list[dict]]:
     """Извлечь числа и текст из xlsx."""
     import openpyxl
     wb = openpyxl.load_workbook(filepath, data_only=True)
@@ -90,7 +90,7 @@ def extract_data_from_xlsx(filepath):
     return numbers, names
 
 
-def find_semantic_groups(all_data):
+def find_semantic_groups(all_data: list[tuple]) -> dict[str, list[dict]]:
     """Найти семантически связанные числа по контексту."""
     groups = defaultdict(list)
     # Ключевые слова для группировки
@@ -110,7 +110,7 @@ def find_semantic_groups(all_data):
     return groups
 
 
-def verify(files):
+def verify(files: list[str]) -> dict:
     all_data = []
     for f in files:
         ext = Path(f).suffix.lower()
