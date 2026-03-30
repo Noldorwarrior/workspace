@@ -19,13 +19,23 @@ def extract_pptx_text(filepath):
         slides.append(" ".join(text_parts))
     return slides
 
-def extract_html_text(filepath):
+# Паттерны разделителей секций для разных HTML-фреймворков
+DEFAULT_SECTION_PATTERN = r'<section|<div[^>]*class="[^"]*slide[^"]*"'
+KNOWN_PATTERNS = {
+    "reveal.js": r'<section',
+    "impress.js": r'<div[^>]*class="[^"]*step[^"]*"',
+    "s5": r'<div[^>]*class="[^"]*slide[^"]*"',
+}
+
+
+def extract_html_text(filepath, section_pattern=None):
     text = Path(filepath).read_text(encoding="utf-8")
     # Убираем скрипты и стили
     text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.DOTALL)
     text = re.sub(r'<style[^>]*>.*?</style>', '', text, flags=re.DOTALL)
     # Разделяем по section/slide-маркерам
-    sections = re.split(r'<section|<div[^>]*class="[^"]*slide[^"]*"', text, flags=re.IGNORECASE)
+    pattern = section_pattern or DEFAULT_SECTION_PATTERN
+    sections = re.split(pattern, text, flags=re.IGNORECASE)
     result = []
     for s in sections[1:]:  # пропускаем до первой секции
         clean = re.sub(r'<[^>]+>', ' ', s)
