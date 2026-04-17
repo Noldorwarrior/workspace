@@ -14,7 +14,6 @@ import argparse
 import json
 import sys
 import os
-import importlib
 import subprocess
 from datetime import datetime
 from pathlib import Path
@@ -72,6 +71,12 @@ SCRIPT_REGISTRY = {
         "description": "Diff между версиями файлов",
         "min_files": 2,
     },
+    "regression": {
+        "module": "verify_regression",
+        "applies_to": ["*"],
+        "description": "Проверка регрессий по предыдущему отчёту",
+        "min_files": 1,
+    },
 }
 
 # Пресеты → скрипты
@@ -79,14 +84,14 @@ PRESET_SCRIPTS = {
     "М1": [],
     "М2": ["format", "sums"],
     "М3": ["format", "sums", "dates"],
-    "М4": ["pptx_format", "pptx_html_sync"],
+    "М4": ["pptx_format", "pptx_html_sync", "cross_file"],
     "М5": [],
     "П1": ["format", "references"],
     "П2": ["dates"],
     "П3": ["sums", "cross_file", "references"],
     "П4": ["format", "references", "diff"],
     "П5": list(SCRIPT_REGISTRY.keys()),  # все
-    "П6": [],
+    "П6": ["cross_file"],
     "П7": ["dates", "references"],
     "П8": ["cross_file", "dates", "numbering"],
     "П9": [],
@@ -94,7 +99,7 @@ PRESET_SCRIPTS = {
     "П11": ["format"],
     "П12": ["references"],
     "П13": ["sums", "references", "dates"],
-    "П14": ["diff", "format"],
+    "П14": ["diff", "format", "regression"],
 }
 
 
@@ -124,7 +129,7 @@ def detect_applicable_scripts(files: list[str]) -> list[str]:
 
 
 def run_script(script_name: str, files: list[str]) -> dict:
-    """Запустить отдельный скрипт верификации."""
+    """Запустить отдельный скрипт верификации и вернуть результат в стандартном формате."""
     info = SCRIPT_REGISTRY[script_name]
     module_name = info["module"]
     script_path = SCRIPT_DIR / f"{module_name}.py"
@@ -168,11 +173,22 @@ def run_script(script_name: str, files: list[str]) -> dict:
 
         if result.returncode == 0 and result.stdout.strip():
             return json.loads(result.stdout)
+        elif result.returncode == 0:
+            return {
+                "script": f"{module_name}.py",
+                "status": "pass",
+                "details": "Скрипт завершился успешно, но не вернул JSON",
+                "items_checked": 0,
+                "items_passed": 0,
+                "items_warned": 0,
+                "items_failed": 0,
+                "findings": [],
+            }
         else:
             return {
                 "script": f"{module_name}.py",
                 "status": "error",
-                "details": result.stderr or "Скрипт не вернул результат",
+                "details": result.stderr or f"Скрипт завершился с кодом {result.returncode}",
                 "items_checked": 0,
                 "items_passed": 0,
                 "items_warned": 0,
@@ -242,6 +258,7 @@ def main():
 
     # Убираем неприменимые
     applicable = detect_applicable_scripts(args.files)
+    skipped = [s for s in scripts_to_run if s not in applicable]
     scripts_to_run = [s for s in scripts_to_run if s in applicable]
 
     # Запускаем
@@ -250,12 +267,19 @@ def main():
         "files_checked": args.files,
         "preset": args.preset,
         "scripts_requested": scripts_to_run,
+        "scripts_skipped": skipped,
         "checks": [],
     }
 
     print(f"📋 Верификация: {len(scripts_to_run)} скриптов для {len(args.files)} файлов")
     print(f"   Файлы: {', '.join(args.files)}")
-    print(f"   Скрипты: {', '.join(scripts_to_run)}")
+    if scripts_to_run:
+        print(f"   Скрипты: {', '.join(scripts_to_run)}")
+    else:
+        preset_name = args.preset or "авто"
+        print(f"   ⚠️ Пресет {preset_name} не содержит скриптовых проверок (только LLM-механизмы)")
+    if skipped:
+        print(f"   Пропущены (не применимы): {', '.join(skipped)}")
     print()
 
     for script_name in scripts_to_run:
@@ -273,6 +297,10 @@ def main():
             print(f"❌ ({result.get('items_failed', 0)} ошибок)")
         elif status == "skip":
             print("⏭️ пропущено")
+        elif status == "info":
+            print("ℹ️")
+        elif status == "error":
+            print(f"💥 ({result.get('details', '')})")
         else:
             print(f"? {status}")
 

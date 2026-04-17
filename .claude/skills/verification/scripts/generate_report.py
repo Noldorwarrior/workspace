@@ -9,7 +9,7 @@ generate_report.py — Генерация итогового отчёта вер
     python generate_report.py --script-results script_report.json --output report.docx --format docx
 """
 
-import argparse, json, sys
+import argparse, json, re, sys
 from datetime import datetime
 from pathlib import Path
 
@@ -17,7 +17,11 @@ from pathlib import Path
 def load_script_results(filepath):
     if not filepath or not Path(filepath).exists():
         return None
-    return json.loads(Path(filepath).read_text(encoding="utf-8"))
+    try:
+        return json.loads(Path(filepath).read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        print(f"⚠️ Ошибка разбора JSON: {filepath} — {e}", file=sys.stderr)
+        return None
 
 
 def load_agent_results(filepath):
@@ -109,8 +113,36 @@ def generate_md(script_results, agent_results, preset=None, mechanisms=None):
     return "\n".join(lines)
 
 
+def _add_formatted_paragraph(doc, text, style="Normal"):
+    """Добавить абзац с парсингом inline-разметки (**жирный**, *курсив*)."""
+    p = doc.add_paragraph(style=style)
+    # Разбиваем по **жирный** и *курсив*
+    # Порядок: сначала bold+italic (***), потом bold (**), потом italic (*)
+    pattern = re.compile(r'(\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|\*(.+?)\*)')
+    last_end = 0
+    for m in pattern.finditer(text):
+        # Добавляем текст до матча
+        if m.start() > last_end:
+            p.add_run(text[last_end:m.start()])
+        if m.group(2):  # ***bold+italic***
+            run = p.add_run(m.group(2))
+            run.bold = True
+            run.italic = True
+        elif m.group(3):  # **bold**
+            run = p.add_run(m.group(3))
+            run.bold = True
+        elif m.group(4):  # *italic*
+            run = p.add_run(m.group(4))
+            run.italic = True
+        last_end = m.end()
+    # Остаток текста
+    if last_end < len(text):
+        p.add_run(text[last_end:])
+    return p
+
+
 def generate_docx(md_content, output_path):
-    """Конвертировать md-отчёт в docx."""
+    """Конвертировать md-отчёт в docx с нормальными таблицами."""
     try:
         from docx import Document
         from docx.shared import Pt, Cm, RGBColor
@@ -123,24 +155,57 @@ def generate_docx(md_content, output_path):
             section.left_margin = Cm(2)
             section.right_margin = Cm(1.5)
 
-        for line in md_content.split("\n"):
+        lines = md_content.split("\n")
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+
             if line.startswith("# "):
-                p = doc.add_heading(line[2:], level=1)
+                doc.add_heading(line[2:], level=1)
             elif line.startswith("## "):
-                p = doc.add_heading(line[3:], level=2)
+                doc.add_heading(line[3:], level=2)
             elif line.startswith("### "):
-                p = doc.add_heading(line[4:], level=3)
+                doc.add_heading(line[4:], level=3)
             elif line.startswith("---"):
                 doc.add_paragraph("─" * 60)
             elif line.startswith("|"):
-                # Простая поддержка таблиц — пропускаем разделители
-                if set(line.replace("|", "").strip()) <= {"-", " "}:
-                    continue
-                doc.add_paragraph(line, style="Normal")
+                # Собираем все строки таблицы
+                table_lines = []
+                while i < len(lines) and lines[i].startswith("|"):
+                    row_text = lines[i]
+                    # Пропускаем строки-разделители (|---|---|)
+                    if not set(row_text.replace("|", "").strip()) <= {"-", " ", ":"}:
+                        # Разделяем по |, но учитываем экранированный \|
+                        raw = row_text.strip().strip("|")
+                        cells = [c.strip().replace("\\|", "|") for c in re.split(r'(?<!\\)\|', raw)]
+                        table_lines.append(cells)
+                    i += 1
+                # Создаём docx-таблицу
+                if table_lines:
+                    num_cols = max(len(row) for row in table_lines)
+                    tbl = doc.add_table(rows=len(table_lines), cols=num_cols, style="Table Grid")
+                    for r_idx, row_cells in enumerate(table_lines):
+                        for c_idx, cell_text in enumerate(row_cells):
+                            if c_idx < num_cols:
+                                cell = tbl.cell(r_idx, c_idx)
+                                cell.text = cell_text
+                                for para in cell.paragraphs:
+                                    for run in para.runs:
+                                        run.font.size = Pt(10)
+                    # Жирный шрифт для заголовков (первая строка)
+                    if table_lines:
+                        for c_idx in range(min(len(table_lines[0]), num_cols)):
+                            cell = tbl.cell(0, c_idx)
+                            for para in cell.paragraphs:
+                                for run in para.runs:
+                                    run.bold = True
+                i -= 1  # компенсация внешнего i += 1
             elif line.startswith("- "):
-                doc.add_paragraph(line[2:], style="List Bullet")
+                _add_formatted_paragraph(doc, line[2:], style="List Bullet")
             elif line.strip():
-                doc.add_paragraph(line)
+                _add_formatted_paragraph(doc, line)
+
+            i += 1
 
         doc.save(output_path)
         return True

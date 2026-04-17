@@ -83,10 +83,10 @@ def check_margins(doc):
 
 
 def check_paragraphs(doc):
-    """Проверка шрифтов и отступов абзацев."""
+    """Проверка шрифтов, отступов и интервалов абзацев."""
     findings = []
     heading_sizes = {"Heading 1": STANDARD["h1_size_pt"], "Heading 2": STANDARD["h2_size_pt"], "Heading 3": STANDARD["h3_size_pt"]}
-    
+
     checked = 0
     for i, para in enumerate(doc.paragraphs):
         if not para.text.strip():
@@ -123,9 +123,11 @@ def check_paragraphs(doc):
                         })
                 break
 
-        # Обычные абзацы — шрифт
-        elif style_name in ("Normal", "Body Text", ""):
+        # Обычные абзацы — шрифт, отступы, интервалы
+        elif style_name in ("Normal", "Body Text"):
             for run in para.runs:
+                if not run.text.strip():
+                    continue
                 if run.font.name and run.font.name != STANDARD["font_name"]:
                     findings.append({
                         "severity": "warning",
@@ -144,33 +146,116 @@ def check_paragraphs(doc):
                             "actual": f"{actual_pt} pt",
                             "description": f"Размер шрифта: {actual_pt}pt вместо {STANDARD['font_size_pt']}pt",
                         })
-                break  # проверяем только первый run
+
+            # Межстрочный интервал
+            pf = para.paragraph_format
+            if pf.line_spacing is not None:
+                actual_ls = pf.line_spacing
+                # line_spacing может быть float (множитель) или Emu (фиксированный)
+                if isinstance(actual_ls, (int, float)) and abs(actual_ls - STANDARD["line_spacing"]) > 0.05:
+                    findings.append({
+                        "severity": "warning",
+                        "location": f"Абзац {i+1}",
+                        "expected": f"{STANDARD['line_spacing']}",
+                        "actual": f"{actual_ls}",
+                        "description": f"Межстрочный интервал: {actual_ls} вместо {STANDARD['line_spacing']}",
+                    })
+
+            # Отступ первой строки
+            if pf.first_line_indent is not None:
+                actual_indent_cm = cm_from_emu(pf.first_line_indent)
+                if actual_indent_cm is not None and abs(actual_indent_cm - STANDARD["first_line_indent_cm"]) > TOLERANCE_CM:
+                    findings.append({
+                        "severity": "warning",
+                        "location": f"Абзац {i+1}",
+                        "expected": f"{STANDARD['first_line_indent_cm']} см",
+                        "actual": f"{actual_indent_cm} см",
+                        "description": f"Красная строка: {actual_indent_cm} см вместо {STANDARD['first_line_indent_cm']} см",
+                    })
+
+            # Интервал после абзаца
+            if pf.space_after is not None:
+                actual_space_pt = pt_from_emu(pf.space_after)
+                if actual_space_pt is not None and abs(actual_space_pt - STANDARD["space_after_pt"]) > TOLERANCE_PT:
+                    findings.append({
+                        "severity": "warning",
+                        "location": f"Абзац {i+1}",
+                        "expected": f"{STANDARD['space_after_pt']} pt",
+                        "actual": f"{actual_space_pt} pt",
+                        "description": f"Интервал после абзаца: {actual_space_pt}pt вместо {STANDARD['space_after_pt']}pt",
+                    })
 
     return findings, checked
 
 
 def check_tables(doc):
-    """Проверка форматирования таблиц."""
+    """Проверка форматирования заголовочной строки каждой таблицы."""
     findings = []
     for i, table in enumerate(doc.tables):
-        for row in table.rows[:1]:  # проверяем первую строку как образец
-            for cell in row.cells:
-                for para in cell.paragraphs:
-                    for run in para.runs:
-                        if run.font.size:
-                            actual_pt = pt_from_emu(run.font.size)
-                            if actual_pt and abs(actual_pt - STANDARD["table_font_size_pt"]) > TOLERANCE_PT:
-                                findings.append({
-                                    "severity": "info",
-                                    "location": f"Таблица {i+1}",
-                                    "expected": f"{STANDARD['table_font_size_pt']} pt",
-                                    "actual": f"{actual_pt} pt",
-                                    "description": f"Шрифт в таблице: {actual_pt}pt вместо {STANDARD['table_font_size_pt']}pt",
-                                })
-                            break
+        if not table.rows:
+            continue
+        header_row = table.rows[0]
+        for c_idx, cell in enumerate(header_row.cells):
+            for para in cell.paragraphs:
+                for run in para.runs:
+                    if not run.text.strip():
+                        continue
+                    if run.font.size:
+                        actual_pt = pt_from_emu(run.font.size)
+                        if actual_pt and abs(actual_pt - STANDARD["table_font_size_pt"]) > TOLERANCE_PT:
+                            findings.append({
+                                "severity": "info",
+                                "location": f"Таблица {i+1}, ячейка {c_idx+1}",
+                                "expected": f"{STANDARD['table_font_size_pt']} pt",
+                                "actual": f"{actual_pt} pt",
+                                "description": f"Шрифт в таблице {i+1}, ячейка {c_idx+1}: {actual_pt}pt вместо {STANDARD['table_font_size_pt']}pt",
+                            })
+                    break  # первый непустой run в ячейке
+                break  # первый абзац в ячейке
+    return findings
+
+
+def check_headers_footers(doc):
+    """Проверка колонтитулов."""
+    findings = []
+    for i, section in enumerate(doc.sections):
+        # Верхний колонтитул: 9pt курсив
+        if section.header and section.header.paragraphs:
+            for para in section.header.paragraphs:
+                for run in para.runs:
+                    if not run.text.strip():
+                        continue
+                    if run.font.size:
+                        actual_pt = pt_from_emu(run.font.size)
+                        if actual_pt and abs(actual_pt - STANDARD["header_font_size_pt"]) > TOLERANCE_PT:
+                            findings.append({
+                                "severity": "info",
+                                "location": f"Section {i+1}, верхний колонтитул",
+                                "expected": f"{STANDARD['header_font_size_pt']} pt",
+                                "actual": f"{actual_pt} pt",
+                                "description": f"Шрифт верхнего колонтитула: {actual_pt}pt вместо {STANDARD['header_font_size_pt']}pt",
+                            })
                     break
                 break
-            break
+
+        # Нижний колонтитул: 12pt
+        if section.footer and section.footer.paragraphs:
+            for para in section.footer.paragraphs:
+                for run in para.runs:
+                    if not run.text.strip():
+                        continue
+                    if run.font.size:
+                        actual_pt = pt_from_emu(run.font.size)
+                        if actual_pt and abs(actual_pt - STANDARD["footer_font_size_pt"]) > TOLERANCE_PT:
+                            findings.append({
+                                "severity": "info",
+                                "location": f"Section {i+1}, нижний колонтитул",
+                                "expected": f"{STANDARD['footer_font_size_pt']} pt",
+                                "actual": f"{actual_pt} pt",
+                                "description": f"Шрифт нижнего колонтитула: {actual_pt}pt вместо {STANDARD['footer_font_size_pt']}pt",
+                            })
+                    break
+                break
     return findings
 
 
@@ -191,7 +276,11 @@ def verify(filepath: str) -> dict:
     table_findings = check_tables(doc)
     all_findings.extend(table_findings)
 
-    items_checked = len(doc.sections) + para_checked + len(doc.tables)
+    # Колонтитулы
+    hf_findings = check_headers_footers(doc)
+    all_findings.extend(hf_findings)
+
+    items_checked = len(doc.sections) + para_checked + len(doc.tables) + len(doc.sections)
     items_warned = len([f for f in all_findings if f["severity"] == "warning"])
     items_failed = len([f for f in all_findings if f["severity"] == "error"])
     items_info = len([f for f in all_findings if f["severity"] == "info"])

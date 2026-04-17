@@ -4,7 +4,15 @@ verify_numbering.py — Проверка последовательности н
 """
 
 import argparse, json, re, sys
-from docx import Document
+
+try:
+    from docx import Document
+except ImportError:
+    print("pip install python-docx --break-system-packages", file=sys.stderr)
+    sys.exit(1)
+
+# Русский алфавит для приложений (без Ъ, Ь, Ы — не используются в нумерации)
+_RU_LETTERS = "АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЩЭЮЯ"
 
 NUMBERED_OBJECTS = {
     "Таблица": r"Таблица\s+(\d+)",
@@ -53,6 +61,46 @@ def verify(filepath):
                         "expected": "присутствует",
                         "actual": "пропущен",
                         "description": f"Пропуск в нумерации: {obj_type} {m} отсутствует (есть {min(nums)}–{max(nums)})",
+                    })
+            # Монотонность порядка появления
+            unique_nums = list(dict.fromkeys(nums))  # убираем дубликаты, сохраняя порядок
+            for k in range(1, len(unique_nums)):
+                if unique_nums[k] < unique_nums[k - 1]:
+                    findings.append({
+                        "severity": "warning",
+                        "location": f"{obj_type} {unique_nums[k]}",
+                        "expected": f"после {obj_type} {unique_nums[k-1]}",
+                        "actual": f"перед {obj_type} {unique_nums[k-1]}",
+                        "description": f"Нарушение порядка: {obj_type} {unique_nums[k]} идёт после {obj_type} {unique_nums[k-1]}",
+                    })
+        # Для буквенных (Приложения А, Б, В...)
+        elif len(numbers[0]) == 1 and numbers[0].upper() in _RU_LETTERS:
+            letters = [n.upper() for n in numbers]
+            # Дубликаты
+            seen = set()
+            for ltr in letters:
+                if ltr in seen:
+                    findings.append({
+                        "severity": "warning",
+                        "location": f"{obj_type} {ltr}",
+                        "expected": "уникальная буква",
+                        "actual": "дубликат",
+                        "description": f"Дубликат: {obj_type} {ltr} встречается несколько раз",
+                    })
+                seen.add(ltr)
+            # Пропуски — от первой до последней буквы
+            if letters:
+                first_idx = _RU_LETTERS.index(min(letters, key=lambda l: _RU_LETTERS.index(l)))
+                last_idx = _RU_LETTERS.index(max(letters, key=lambda l: _RU_LETTERS.index(l)))
+                expected_letters = set(_RU_LETTERS[first_idx:last_idx + 1])
+                missing = expected_letters - set(letters)
+                for ltr in sorted(missing, key=lambda l: _RU_LETTERS.index(l)):
+                    findings.append({
+                        "severity": "warning",
+                        "location": f"{obj_type} {ltr}",
+                        "expected": "присутствует",
+                        "actual": "пропущено",
+                        "description": f"Пропуск: {obj_type} {ltr} отсутствует (есть {min(letters, key=lambda l: _RU_LETTERS.index(l))}–{max(letters, key=lambda l: _RU_LETTERS.index(l))})",
                     })
 
     items_warned = len(findings)

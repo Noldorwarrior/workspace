@@ -115,6 +115,8 @@ python scripts/generate_report.py \
   №12 обратная логика
   №16 спор «за/против»
   №17 граф причин-следствий
+  №20 двойной расчёт
+  №23 метаморфическое тестирование
   №30 стресс-тест выводов
 
 Субагент B — «Фактчекер»:
@@ -136,7 +138,7 @@ python scripts/generate_report.py \
   №31 проверка адресата
 ```
 
-Скриптовые проверки (№1,3,4,5,6,8,9,22,24,32) запускаются параллельно со всеми субагентами через `auto_verify.py`.
+Скриптовые проверки (№1 частично, №3,4,5,6,8,9,22,24,32) запускаются параллельно со всеми субагентами через `auto_verify.py`. Механизм №1 (точный перенос) автоматизирован для чисел и ФИО; семантическую проверку контекста делает LLM.
 
 ### Сведение результатов
 
@@ -253,7 +255,6 @@ python scripts/auto_verify.py \
   --files result.docx source.xlsx slides.pptx \
   --preset П1 \
   --scripts format,sums,references,cross_file,dates \
-  --format-standard rakhman_v6 \
   --output verification_report.json \
   --report-format md
 ```

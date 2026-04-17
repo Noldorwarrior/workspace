@@ -16,7 +16,7 @@ DATE_PATTERNS = [
     (r'(\d{4})-(\d{2})-(\d{2})', 'ymd_iso'),
 ]
 
-def extract_dates(text):
+def extract_dates(text: str) -> list[dict]:
     dates = []
     for pattern, fmt in DATE_PATTERNS:
         for m in re.finditer(pattern, text, re.IGNORECASE):
@@ -33,7 +33,7 @@ def extract_dates(text):
                 pass
     return dates
 
-def verify(files):
+def verify(files: list[str]) -> dict:
     findings = []
     all_dates = []
     
@@ -49,7 +49,15 @@ def verify(files):
             wb = openpyxl.load_workbook(f, data_only=True)
             for ws in wb.worksheets:
                 for row in ws.iter_rows(values_only=True):
-                    text += " ".join(str(c) for c in row if c) + "\n"
+                    for c in row:
+                        if c is None:
+                            continue
+                        # Обработка datetime-объектов из openpyxl напрямую
+                        if isinstance(c, datetime):
+                            all_dates.append({"date": c, "text": c.strftime("%d.%m.%Y"), "context": f"{f}: ячейка", "file": f})
+                        else:
+                            text += str(c) + " "
+                    text += "\n"
         
         file_dates = extract_dates(text)
         for d in file_dates:
@@ -58,7 +66,8 @@ def verify(files):
 
     # Проверка 1: даты в будущем (если контекст не прогнозный)
     now = datetime.now()
-    prognosis_kw = ["план", "прогноз", "ожида", "целев", "будет", "2026", "2027"]
+    future_years = [str(now.year + i) for i in range(0, 5)]
+    prognosis_kw = ["план", "прогноз", "ожида", "целев", "будет"] + future_years
     for d in all_dates:
         if d["date"] > now:
             if not any(kw in d["context"].lower() for kw in prognosis_kw):
@@ -72,11 +81,12 @@ def verify(files):
 
     # Проверка 2: нереалистичные даты
     for d in all_dates:
-        if d["date"].year < 1990 or d["date"].year > 2030:
+        max_year = now.year + 10
+        if d["date"].year < 1990 or d["date"].year > max_year:
             findings.append({
                 "severity": "warning",
                 "location": f"{d['file']}: {d['text']}",
-                "expected": "1990–2030",
+                "expected": f"1990–{max_year}",
                 "actual": d["text"],
                 "description": f"Подозрительный год: {d['date'].year}",
             })

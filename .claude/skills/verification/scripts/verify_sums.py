@@ -38,17 +38,46 @@ def find_sum_rows(ws):
     return sum_rows
 
 
+def get_merged_cell_ranges(ws):
+    """Получить множество ячеек, входящих в объединённые диапазоны (кроме верхней левой)."""
+    merged = set()
+    for rng in ws.merged_cells.ranges:
+        cells = list(rng.cells)
+        for cell_coord in cells[1:]:  # пропускаем первую (она хранит значение)
+            merged.add(cell_coord)
+    return merged
+
+
+def is_row_hidden(ws, row_idx):
+    """Проверить, скрыта ли строка."""
+    rd = ws.row_dimensions.get(row_idx)
+    return rd is not None and rd.hidden
+
+
 def check_sum_row(ws, sum_row_idx, findings):
     """Проверить итоговую строку: сумма ячеек выше должна совпадать."""
+    merged_cells = get_merged_cell_ranges(ws)
+
     for col_idx in range(1, ws.max_column + 1):
         cell = ws.cell(row=sum_row_idx, column=col_idx)
         if cell.value is None or not isinstance(cell.value, (int, float)):
+            continue
+        # Пропускаем вторичные ячейки объединённого диапазона
+        if (sum_row_idx, col_idx) in merged_cells:
             continue
 
         # Собираем числа выше до предыдущего итога или начала
         actual_sum = 0
         count = 0
+        hidden_skipped = 0
         for r in range(sum_row_idx - 1, 0, -1):
+            # Пропускаем скрытые строки
+            if is_row_hidden(ws, r):
+                hidden_skipped += 1
+                continue
+            # Пропускаем вторичные ячейки объединённого диапазона
+            if (r, col_idx) in merged_cells:
+                continue
             upper_cell = ws.cell(row=r, column=col_idx)
             if upper_cell.value is None:
                 continue
@@ -63,12 +92,15 @@ def check_sum_row(ws, sum_row_idx, findings):
         if count > 1:  # есть что суммировать
             diff = abs(cell.value - actual_sum)
             if diff > 0.01:  # порог
+                detail = f"Итог {cell.coordinate}={cell.value}, пересчёт={actual_sum}, разница={diff}"
+                if hidden_skipped > 0:
+                    detail += f" (пропущено скрытых строк: {hidden_skipped})"
                 findings.append({
                     "severity": "error" if diff > 1 else "warning",
                     "location": f"{ws.title}!{cell.coordinate}",
                     "expected": str(actual_sum),
                     "actual": str(cell.value),
-                    "description": f"Итог {cell.coordinate}={cell.value}, пересчёт={actual_sum}, разница={diff}",
+                    "description": detail,
                 })
 
 
@@ -129,8 +161,13 @@ def check_negative_values(ws, findings):
                         })
 
 
+MAX_FILE_SIZE_MB = 50  # файлы больше этого размера открываются в read_only
+
+
 def verify(filepath: str) -> dict:
-    wb = openpyxl.load_workbook(filepath, data_only=True)
+    file_size_mb = Path(filepath).stat().st_size / (1024 * 1024)
+    use_read_only = file_size_mb > MAX_FILE_SIZE_MB
+    wb = openpyxl.load_workbook(filepath, data_only=True, read_only=use_read_only)
     findings = []
     items_checked = 0
 
@@ -142,7 +179,13 @@ def verify(filepath: str) -> dict:
 
         check_boundaries(ws, findings)
         check_negative_values(ws, findings)
-        items_checked += ws.max_row * ws.max_column  # approximate
+        # Считаем фактические числовые ячейки
+        numeric_cells = 0
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            for cell in row:
+                if isinstance(cell, (int, float)):
+                    numeric_cells += 1
+        items_checked += numeric_cells
 
     items_warned = len([f for f in findings if f["severity"] == "warning"])
     items_failed = len([f for f in findings if f["severity"] == "error"])
@@ -151,7 +194,7 @@ def verify(filepath: str) -> dict:
     return {
         "script": "verify_sums.py",
         "status": status,
-        "details": f"Листов: {len(wb.worksheets)}, итогов проверено: {len(find_sum_rows(wb.active) if wb.active else [])}",
+        "details": f"Листов: {len(wb.worksheets)}, итогов проверено: {sum(len(find_sum_rows(ws)) for ws in wb.worksheets)}",
         "items_checked": items_checked,
         "items_passed": items_checked - items_warned - items_failed,
         "items_warned": items_warned,

@@ -15,7 +15,7 @@ except ImportError:
 
 REF_PATTERNS = [
     (r"(?:см\.?\s*)?(?:таблиц[аеуы]\s*)(\d+)", "Таблица"),
-    (r"(?:см\.?\s*)?(?:рисун[окка]+\s*)(\d+)", "Рисунок"),
+    (r"(?:см\.?\s*)?(?:рисун\w*\s*)(\d+)", "Рисунок"),
     (r"(?:см\.?\s*)?(?:диаграмм[аеуы]\s*)(\d+)", "Диаграмма"),
     (r"(?:см\.?\s*)?(?:приложени[еяю]\s*)([А-ЯA-Z\d]+)", "Приложение"),
     (r"(?:см\.?\s*)?(?:п(?:ункт)?\.?\s*)(\d+(?:\.\d+)*)", "Пункт"),
@@ -25,26 +25,41 @@ REF_PATTERNS = [
 ]
 
 def extract_references(doc):
-    """Извлечь все ссылки из текста."""
+    """Извлечь все ссылки из текста, обрабатывая поабзацно."""
     refs = []
-    full_text = "\n".join(p.text for p in doc.paragraphs)
-    for pattern, ref_type in REF_PATTERNS:
-        for match in re.finditer(pattern, full_text, re.IGNORECASE):
-            refs.append({
-                "type": ref_type,
-                "target": match.group(1),
-                "context": full_text[max(0, match.start()-30):match.end()+30].strip(),
-            })
+    for para_idx, para in enumerate(doc.paragraphs, 1):
+        text = para.text
+        if not text.strip():
+            continue
+        for pattern, ref_type in REF_PATTERNS:
+            for match in re.finditer(pattern, text, re.IGNORECASE):
+                context = text[max(0, match.start()-30):match.end()+30].strip()
+                refs.append({
+                    "type": ref_type,
+                    "target": match.group(1),
+                    "context": context,
+                    "paragraph": para_idx,
+                })
     return refs
 
 def find_targets(doc):
     """Найти существующие цели (таблицы, заголовки, приложения)."""
     targets = {"Таблица": set(), "Рисунок": set(), "Диаграмма": set(),
                "Приложение": set(), "Пункт": set(), "Схема": set(), "График": set(), "Слайд": set()}
-    
-    # Таблицы — считаем по порядку
-    for i in range(len(doc.tables)):
-        targets["Таблица"].add(str(i + 1))
+
+    # Таблицы — приоритет подписям «Таблица N — ...» в тексте
+    caption_tables = set()
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        m = re.match(r"^Таблица\s+(\d+)", text, re.IGNORECASE)
+        if m:
+            caption_tables.add(m.group(1))
+    if caption_tables:
+        targets["Таблица"] = caption_tables
+    else:
+        # Fallback: порядковая нумерация
+        for i in range(len(doc.tables)):
+            targets["Таблица"].add(str(i + 1))
 
     # Заголовки с нумерацией → пункты
     for para in doc.paragraphs:
@@ -77,9 +92,10 @@ def verify(filepath: str) -> dict:
         target_id = ref["target"].upper() if ref["type"] == "Приложение" else ref["target"]
         
         if target_id not in target_set:
+            para_info = f" (абзац {ref['paragraph']})" if "paragraph" in ref else ""
             findings.append({
                 "severity": "error",
-                "location": f"{ref['type']} {ref['target']}",
+                "location": f"{ref['type']} {ref['target']}{para_info}",
                 "expected": "существует",
                 "actual": "не найдено",
                 "description": f"Битая ссылка: {ref['type']} {ref['target']} не найден(а) в документе. Контекст: «...{ref['context']}...»",

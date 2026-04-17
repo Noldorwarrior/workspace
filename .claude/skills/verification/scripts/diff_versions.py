@@ -20,6 +20,7 @@ def extract_text(filepath):
         for ws in wb.worksheets:
             for row in ws.iter_rows(values_only=True):
                 lines.append("\t".join(str(c) if c else "" for c in row))
+        wb.close()
         return lines
     elif ext in (".txt", ".md", ".csv"):
         return Path(filepath).read_text(encoding="utf-8").splitlines()
